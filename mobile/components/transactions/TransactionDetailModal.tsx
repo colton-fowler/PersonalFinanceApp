@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { USER_SELECTABLE_CATEGORIES } from "../../db/models/category";
 import type { Transaction } from "../../db/models/transaction";
+import { upsertTransactionRuleByMerchantKey } from "../../db/repositories/transactionRulesRepository";
 import {
   getTransactionById,
   setTransactionCategoryManual,
@@ -17,6 +18,7 @@ import {
   formatTransactionAmount,
   formatTransactionDate,
 } from "../../utils/formatTransactionAmount";
+import { merchantKeyFromTransaction } from "../../utils/merchantKey";
 
 type TransactionDetailModalProps = {
   transactionId: string | null;
@@ -36,6 +38,8 @@ export function TransactionDetailModal({
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(false);
   const [savingCategory, setSavingCategory] = useState<string | null>(null);
+  const [savingRule, setSavingRule] = useState(false);
+  const [ruleMessage, setRuleMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadTransaction = useCallback(async () => {
@@ -46,6 +50,7 @@ export function TransactionDetailModal({
 
     setLoading(true);
     setError(null);
+    setRuleMessage(null);
     try {
       const row = await getTransactionById(transactionId);
       setTransaction(row);
@@ -75,6 +80,7 @@ export function TransactionDetailModal({
 
     setSavingCategory(category);
     setError(null);
+    setRuleMessage(null);
     try {
       const updated = await setTransactionCategoryManual(transaction.id, category);
       if (!updated) {
@@ -97,6 +103,42 @@ export function TransactionDetailModal({
     ? formatTransactionAmount(transaction.amount)
     : null;
   const sourceLabel = transaction?.plaid_transaction_id ? "Plaid" : "Local";
+  const merchantKey = transaction
+    ? merchantKeyFromTransaction(transaction.merchant_name, transaction.name)
+    : null;
+  const canCreateMerchantRule =
+    transaction?.category_source === "manual" && merchantKey !== null;
+
+  const handleCreateMerchantRule = async () => {
+    if (!transaction || !merchantKey || savingRule) {
+      return;
+    }
+
+    setSavingRule(true);
+    setError(null);
+    setRuleMessage(null);
+    try {
+      await upsertTransactionRuleByMerchantKey(
+        merchantKey,
+        transaction.category,
+        transaction.merchant_name ?? transaction.name,
+      );
+      setRuleMessage(
+        `Future transactions from this merchant will use "${transaction.category}". Refresh to apply to synced rows.`,
+      );
+    } catch {
+      setError("Could not save merchant rule.");
+    } finally {
+      setSavingRule(false);
+    }
+  };
+
+  const categorySetByLabel =
+    transaction?.category_source === "manual"
+      ? "You"
+      : transaction?.category_source === "rule"
+        ? "Merchant rule"
+        : null;
 
   return (
     <Modal
@@ -151,8 +193,8 @@ export function TransactionDetailModal({
                 value={transaction.pending ? "Pending" : "Posted"}
               />
               <DetailRow label="Source" value={sourceLabel} />
-              {transaction.category_source === "manual" ? (
-                <DetailRow label="Category set by" value="You" />
+              {categorySetByLabel ? (
+                <DetailRow label="Category set by" value={categorySetByLabel} />
               ) : null}
             </DetailSection>
 
@@ -194,6 +236,38 @@ export function TransactionDetailModal({
                 })}
               </View>
             </View>
+
+            {canCreateMerchantRule ? (
+              <View className="rounded-2xl bg-white px-5 py-5 shadow-sm">
+                <Text className="text-base font-semibold text-slate-900">
+                  Merchant rule
+                </Text>
+                <Text className="mt-1 text-sm text-slate-500">
+                  Optionally categorize future transactions from this merchant
+                  automatically. This does not change past manual edits.
+                </Text>
+                <Pressable
+                  onPress={() => void handleCreateMerchantRule()}
+                  disabled={savingRule}
+                  className={`mt-4 items-center rounded-xl border border-brand-200 bg-brand-50 py-3 ${
+                    savingRule ? "opacity-50" : "active:bg-brand-100"
+                  }`}
+                >
+                  {savingRule ? (
+                    <ActivityIndicator size="small" color="#0284c7" />
+                  ) : (
+                    <Text className="text-center text-sm font-semibold text-brand-700">
+                      Apply to future transactions from this merchant
+                    </Text>
+                  )}
+                </Pressable>
+                {ruleMessage ? (
+                  <Text className="mt-3 text-sm leading-5 text-brand-700">
+                    {ruleMessage}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
 
             {error ? (
               <Text className="text-center text-sm text-red-600">{error}</Text>

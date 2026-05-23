@@ -1,4 +1,4 @@
-export type CategorySource = "plaid" | "manual";
+export type CategorySource = "plaid" | "manual" | "rule";
 
 /** Local transaction row — names, amounts, merchants are sensitive. */
 export type Transaction = {
@@ -77,7 +77,12 @@ export function transactionFromRow(row: TransactionRow): Transaction {
     amount: row.amount,
     date: row.transaction_date,
     category: row.category,
-    category_source: row.category_source === "manual" ? "manual" : "plaid",
+    category_source:
+      row.category_source === "manual"
+        ? "manual"
+        : row.category_source === "rule"
+          ? "rule"
+          : "plaid",
     pending: row.pending === 1,
     iso_currency_code: row.iso_currency_code,
     created_at: row.created_at,

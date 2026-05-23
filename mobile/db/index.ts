@@ -13,8 +13,10 @@ export * from "./models/account";
 export * from "./models/transaction";
 export * from "./models/subscription";
 export * from "./models/setting";
+export * from "./models/transactionRule";
 
 export * as accountsRepository from "./repositories/accountsRepository";
+export * as transactionRulesRepository from "./repositories/transactionRulesRepository";
 export * as transactionsRepository from "./repositories/transactionsRepository";
 export * as subscriptionsRepository from "./repositories/subscriptionsRepository";
 export * as settingsRepository from "./repositories/settingsRepository";

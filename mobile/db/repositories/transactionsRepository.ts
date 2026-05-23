@@ -9,6 +9,7 @@ import {
 } from "../models/transaction";
 import { createId, isoNow } from "../utils/id";
 import { safeLogger } from "../../security/safeLogger";
+import { resolveCategoryForPlaidSync } from "../../services/transactionCategoryResolver";
 
 export async function createTransaction(
   input: TransactionInsert,
@@ -64,8 +65,16 @@ export async function upsertTransactionByPlaidId(
   );
 
   if (existing) {
-    const preserveManualCategory =
-      transactionFromRow(existing).category_source === "manual";
+    const existingTx = transactionFromRow(existing);
+    const preserveManualCategory = existingTx.category_source === "manual";
+    const resolved = preserveManualCategory
+      ? null
+      : await resolveCategoryForPlaidSync(
+          input.merchant_name ?? null,
+          input.name,
+          input.category,
+        );
+
     const updated = await updateTransaction(
       existing.id,
       {
@@ -73,7 +82,12 @@ export async function upsertTransactionByPlaidId(
         merchant_name: input.merchant_name ?? null,
         amount: input.amount,
         date: input.date,
-        ...(preserveManualCategory ? {} : { category: input.category }),
+        ...(preserveManualCategory
+          ? {}
+          : {
+              category: resolved!.category,
+              category_source: resolved!.category_source,
+            }),
         pending: input.pending ?? false,
         iso_currency_code: input.iso_currency_code ?? null,
         updated_at: input.updated_at ?? isoNow(),
@@ -86,7 +100,20 @@ export async function upsertTransactionByPlaidId(
     return updated;
   }
 
-  return createTransaction(input, conn);
+  const resolved = await resolveCategoryForPlaidSync(
+    input.merchant_name ?? null,
+    input.name,
+    input.category,
+  );
+
+  return createTransaction(
+    {
+      ...input,
+      category: resolved.category,
+      category_source: resolved.category_source,
+    },
+    conn,
+  );
 }
 
 export async function getTransactionById(

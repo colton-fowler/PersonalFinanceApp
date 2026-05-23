@@ -8,7 +8,9 @@ import {
 } from "react-native";
 import { DashboardEmptyState } from "../components/dashboard/DashboardEmptyState";
 import { DashboardSection } from "../components/dashboard/DashboardSection";
+import { TransactionCategoryChip } from "../components/transactions/TransactionCategoryChip";
 import { TransactionDetailModal } from "../components/transactions/TransactionDetailModal";
+import { TransactionSearchInput } from "../components/transactions/TransactionSearchInput";
 import type { Account } from "../db/models/account";
 import { SETTING_KEYS } from "../db/models/setting";
 import type { Subscription } from "../db/models/subscription";
@@ -33,6 +35,10 @@ import {
   formatTransactionAmount,
   formatTransactionDate,
 } from "../utils/formatTransactionAmount";
+import {
+  filterTransactionRows,
+  normalizeTransactionSearchQuery,
+} from "../utils/filterTransactions";
 
 type DashboardState = "loading" | "ready" | "error";
 
@@ -58,6 +64,7 @@ export function Dashboard() {
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(
     null,
   );
+  const [transactionSearchQuery, setTransactionSearchQuery] = useState("");
   const hasLoadedOnce = useRef(false);
   const refreshInFlight = useRef(false);
 
@@ -139,6 +146,16 @@ export function Dashboard() {
   const selectedTransaction = useMemo(
     () => transactionRows.find((row) => row.id === selectedTransactionId) ?? null,
     [transactionRows, selectedTransactionId],
+  );
+
+  const normalizedTransactionSearch = useMemo(
+    () => normalizeTransactionSearchQuery(transactionSearchQuery),
+    [transactionSearchQuery],
+  );
+
+  const filteredTransactionRows = useMemo(
+    () => filterTransactionRows(transactionRows, normalizedTransactionSearch),
+    [transactionRows, normalizedTransactionSearch],
   );
 
   const totalBalance = sumAccountBalances(accounts);
@@ -328,42 +345,54 @@ export function Dashboard() {
               <DashboardEmptyState message="No transactions yet. Plaid may take a few minutes after linking—refresh when ready." />
             ) : (
               <View>
-                {transactionRows.map((transaction) => {
-                  const displayName =
-                    transaction.merchant_name ?? transaction.name;
-                  const amountDisplay = formatTransactionAmount(transaction.amount);
+                <TransactionSearchInput
+                  value={transactionSearchQuery}
+                  onChangeText={setTransactionSearchQuery}
+                />
+                {filteredTransactionRows.length === 0 ? (
+                  <DashboardEmptyState message="No matching transactions." />
+                ) : (
+                  filteredTransactionRows.map((transaction) => {
+                    const displayName =
+                      transaction.merchant_name ?? transaction.name;
+                    const amountDisplay = formatTransactionAmount(transaction.amount);
 
-                  return (
-                    <ListRow
-                      key={transaction.id}
-                      onPress={() => setSelectedTransactionId(transaction.id)}
-                      trailing={
-                        <Text
-                          className={`text-base font-semibold ${
-                            amountDisplay.isOutflow
-                              ? "text-red-600"
-                              : "text-green-700"
-                          }`}
-                        >
-                          {amountDisplay.text}
+                    return (
+                      <ListRow
+                        key={transaction.id}
+                        onPress={() => setSelectedTransactionId(transaction.id)}
+                        trailing={
+                          <Text
+                            className={`text-base font-semibold ${
+                              amountDisplay.isOutflow
+                                ? "text-red-600"
+                                : "text-green-700"
+                            }`}
+                          >
+                            {amountDisplay.text}
+                          </Text>
+                        }
+                      >
+                        <Text className="font-medium text-slate-900">
+                          {displayName}
                         </Text>
-                      }
-                    >
-                      <Text className="font-medium text-slate-900">
-                        {displayName}
-                      </Text>
-                      <Text className="mt-1 text-sm text-slate-500">
-                        {formatTransactionDate(transaction.date)} ·{" "}
-                        {transaction.accountLabel}
-                      </Text>
-                      {transaction.pending ? (
-                        <Text className="mt-1 text-xs font-medium text-amber-600">
-                          Pending
+                        <TransactionCategoryChip
+                          category={transaction.category}
+                          categorySource={transaction.category_source}
+                        />
+                        <Text className="mt-1 text-sm text-slate-500">
+                          {formatTransactionDate(transaction.date)} ·{" "}
+                          {transaction.accountLabel}
                         </Text>
-                      ) : null}
-                    </ListRow>
-                  );
-                })}
+                        {transaction.pending ? (
+                          <Text className="mt-1 text-xs font-medium text-amber-600">
+                            Pending
+                          </Text>
+                        ) : null}
+                      </ListRow>
+                    );
+                  })
+                )}
               </View>
             )}
           </DashboardSection>
