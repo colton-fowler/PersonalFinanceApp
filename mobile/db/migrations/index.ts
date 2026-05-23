@@ -7,6 +7,8 @@ import { migration003 } from "./003_transactions_plaid";
 import { migration004 } from "./004_subscriptions_detected";
 import { migration005 } from "./005_transaction_category_source";
 import { migration006 } from "./006_transaction_rules";
+import { migration007 } from "./007_subscription_decisions";
+import { migration008 } from "./008_subscription_decision_patterns";
 import type { Migration } from "./types";
 
 /** Ordered migrations — append-only; never edit applied versions. */
@@ -17,6 +19,8 @@ const MIGRATIONS: Migration[] = [
   migration004,
   migration005,
   migration006,
+  migration007,
+  migration008,
 ];
 
 async function ensureMigrationsTable(db: SQLite.SQLiteDatabase): Promise<void> {

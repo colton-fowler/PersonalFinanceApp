@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { DashboardEmptyState } from "../components/dashboard/DashboardEmptyState";
 import { DashboardSection } from "../components/dashboard/DashboardSection";
+import { SubscriptionDetailModal } from "../components/subscriptions/SubscriptionDetailModal";
 import { CategorySpendingModal } from "../components/transactions/CategorySpendingModal";
 import { TransactionCategoryChip } from "../components/transactions/TransactionCategoryChip";
 import { TransactionDetailModal } from "../components/transactions/TransactionDetailModal";
@@ -18,7 +19,7 @@ import type { Subscription } from "../db/models/subscription";
 import type { Transaction } from "../db/models/transaction";
 import { listAccounts } from "../db/repositories/accountsRepository";
 import { getSetting } from "../db/repositories/settingsRepository";
-import { listDetectedSubscriptions } from "../db/repositories/subscriptionsRepository";
+import { listVisibleSubscriptions } from "../db/repositories/subscriptionsRepository";
 import {
   listAllTransactions,
 } from "../db/repositories/transactionsRepository";
@@ -73,6 +74,9 @@ export function Dashboard() {
   const [selectedSpendingCategory, setSelectedSpendingCategory] = useState<string | null>(
     null,
   );
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string | null>(
+    null,
+  );
   const [transactionSearchQuery, setTransactionSearchQuery] = useState("");
   const hasLoadedOnce = useRef(false);
   const refreshInFlight = useRef(false);
@@ -82,7 +86,7 @@ export function Dashboard() {
       await Promise.all([
         listAccounts(),
         listAllTransactions(),
-        listDetectedSubscriptions(),
+        listVisibleSubscriptions(),
         getSetting(SETTING_KEYS.LAST_SYNC_AT),
       ]);
 
@@ -377,6 +381,7 @@ export function Dashboard() {
                 {subscriptions.map((subscription) => (
                   <ListRow
                     key={subscription.id}
+                    onPress={() => setSelectedSubscriptionId(subscription.id)}
                     trailing={
                       <Text className="text-base font-semibold text-slate-900">
                         {formatCurrency(subscription.estimated_amount)}
@@ -480,6 +485,14 @@ export function Dashboard() {
         categoryTotal={categorySpendingTotal}
         onClose={() => setSelectedSpendingCategory(null)}
         onSelectTransaction={setSelectedTransactionId}
+      />
+
+      <SubscriptionDetailModal
+        visible={selectedSubscriptionId !== null}
+        subscriptionId={selectedSubscriptionId}
+        allTransactions={allTransactions}
+        onClose={() => setSelectedSubscriptionId(null)}
+        onDecisionSaved={() => void loadLocalDashboardData()}
       />
 
       <TransactionDetailModal

@@ -9,6 +9,11 @@ import {
 } from "../models/subscription";
 import { createId } from "../utils/id";
 import { safeLogger } from "../../security/safeLogger";
+import {
+  listIgnoredMerchantKeys,
+  listRejectedSubscriptionPatterns,
+} from "./subscriptionDecisionsRepository";
+import { isSubscriptionHiddenFromDashboard } from "../../utils/subscriptionPattern";
 
 export async function createSubscription(
   input: SubscriptionInsert,
@@ -80,22 +85,66 @@ export async function listDetectedSubscriptions(
   return rows.map(subscriptionFromRow);
 }
 
+export async function listVisibleSubscriptions(
+  db?: SQLite.SQLiteDatabase,
+): Promise<Subscription[]> {
+  const conn = db ?? (await openDatabase());
+  const [rows, ignoredMerchantKeys, rejectedPatterns] = await Promise.all([
+    conn.getAllAsync<SubscriptionRow>(
+      "SELECT * FROM subscriptions ORDER BY next_charge_date ASC",
+    ),
+    listIgnoredMerchantKeys(conn),
+    listRejectedSubscriptionPatterns(conn),
+  ]);
+
+  const visible = rows
+    .map(subscriptionFromRow)
+    .filter(
+      (subscription) =>
+        !isSubscriptionHiddenFromDashboard(
+          subscription,
+          ignoredMerchantKeys,
+          rejectedPatterns,
+        ),
+    );
+
+  safeLogger.debug("Visible subscriptions listed", { count: visible.length });
+  return visible;
+}
+
 export async function replaceDetectedSubscriptions(
   subscriptions: SubscriptionInsert[],
   db?: SQLite.SQLiteDatabase,
 ): Promise<number> {
   const conn = db ?? (await openDatabase());
+  const [ignoredMerchantKeys, rejectedPatterns] = await Promise.all([
+    listIgnoredMerchantKeys(conn),
+    listRejectedSubscriptionPatterns(conn),
+  ]);
+
+  const eligible = subscriptions.filter(
+    (subscription) =>
+      !isSubscriptionHiddenFromDashboard(
+        {
+          merchant_name: subscription.merchant_name,
+          estimated_amount: subscription.estimated_amount,
+          cadence: subscription.cadence,
+        },
+        ignoredMerchantKeys,
+        rejectedPatterns,
+      ),
+  );
 
   await conn.runAsync("DELETE FROM subscriptions WHERE source = 'detected'");
 
-  for (const subscription of subscriptions) {
+  for (const subscription of eligible) {
     await createSubscription({ ...subscription, source: "detected" }, conn);
   }
 
   safeLogger.debug("Detected subscriptions replaced", {
-    count: subscriptions.length,
+    count: eligible.length,
   });
-  return subscriptions.length;
+  return eligible.length;
 }
 
 export async function updateSubscription(

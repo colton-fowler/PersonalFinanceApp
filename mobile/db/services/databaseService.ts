@@ -24,6 +24,7 @@ export async function resetDatabase(): Promise<void> {
     await db.execAsync(`
       DELETE FROM transactions;
       DELETE FROM transaction_rules;
+      DELETE FROM subscription_decisions;
       DELETE FROM subscriptions;
       DELETE FROM accounts;
       DELETE FROM settings;
