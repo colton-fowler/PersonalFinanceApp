@@ -61,16 +61,6 @@ export default function App() {
     (async () => {
       try {
         await initializeDatabase();
-        if (__DEV__) {
-          void import("./dev/kfcSubscriptionPatternDevUtil").then((mod) => {
-            const devGlobal = globalThis as typeof globalThis & {
-              runKfcIgnoreRemovalVerification?: typeof mod.runKfcIgnoreRemovalVerification;
-              deleteKfcIgnoredMerchantDecision?: typeof mod.deleteKfcIgnoredMerchantDecision;
-            };
-            devGlobal.runKfcIgnoreRemovalVerification = mod.runKfcIgnoreRemovalVerification;
-            devGlobal.deleteKfcIgnoredMerchantDecision = mod.deleteKfcIgnoredMerchantDecision;
-          });
-        }
         if (!cancelled) {
           setInitState("ready");
           await refreshLinkedState();
