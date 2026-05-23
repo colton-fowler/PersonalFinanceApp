@@ -54,3 +54,6 @@ yarn-error.*
 *.mobileprovision
 CLAUDE.md
 .claude/
+
+CLAUDE.md
+.claude/
