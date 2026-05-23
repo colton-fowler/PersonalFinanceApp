@@ -44,7 +44,12 @@ function monthLabelFromKey(monthKey: string): string {
   return labelDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-function isCurrentMonthTransaction(
+/** Category label used when grouping monthly spending totals. */
+export function spendingCategoryLabel(transaction: Transaction): string {
+  return transaction.category.trim() || "Other";
+}
+
+export function isTransactionInSpendingMonth(
   transaction: Transaction,
   monthKey: string,
 ): boolean {
@@ -74,6 +79,30 @@ export function isSpendingOutflow(transaction: Transaction): boolean {
   return true;
 }
 
+/** Transactions included in a monthly spending category total (same filters as summarize). */
+export function listMonthlySpendingTransactionsForCategory(
+  transactions: Transaction[],
+  category: string,
+  monthKey: string,
+): Transaction[] {
+  return transactions
+    .filter((transaction) => isTransactionInSpendingMonth(transaction, monthKey))
+    .filter(isSpendingOutflow)
+    .filter((transaction) => spendingCategoryLabel(transaction) === category)
+    .sort((left, right) => {
+      const dateCompare = right.date.localeCompare(left.date);
+      if (dateCompare !== 0) {
+        return dateCompare;
+      }
+      return right.created_at.localeCompare(left.created_at);
+    });
+}
+
+export function sumSpendingTransactionAmounts(transactions: Transaction[]): number {
+  const total = transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+  return Math.round(total * 100) / 100;
+}
+
 /**
  * Groups current-month spending outflows by category.
  * Excludes income, pending charges, and transfer/payment-like rows.
@@ -86,7 +115,7 @@ export function summarizeMonthlySpending(
   const totalsByCategory = new Map<string, number>();
 
   for (const transaction of transactions) {
-    if (!isCurrentMonthTransaction(transaction, monthKey)) {
+    if (!isTransactionInSpendingMonth(transaction, monthKey)) {
       continue;
     }
 
@@ -94,7 +123,7 @@ export function summarizeMonthlySpending(
       continue;
     }
 
-    const category = transaction.category.trim() || "Other";
+    const category = spendingCategoryLabel(transaction);
     totalsByCategory.set(
       category,
       (totalsByCategory.get(category) ?? 0) + transaction.amount,

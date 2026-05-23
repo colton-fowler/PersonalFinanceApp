@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { DashboardEmptyState } from "../components/dashboard/DashboardEmptyState";
 import { DashboardSection } from "../components/dashboard/DashboardSection";
+import { CategorySpendingModal } from "../components/transactions/CategorySpendingModal";
 import { TransactionCategoryChip } from "../components/transactions/TransactionCategoryChip";
 import { TransactionDetailModal } from "../components/transactions/TransactionDetailModal";
 import { TransactionSearchInput } from "../components/transactions/TransactionSearchInput";
@@ -18,10 +19,14 @@ import type { Transaction } from "../db/models/transaction";
 import { listAccounts } from "../db/repositories/accountsRepository";
 import { getSetting } from "../db/repositories/settingsRepository";
 import { listDetectedSubscriptions } from "../db/repositories/subscriptionsRepository";
-import { listRecentTransactions } from "../db/repositories/transactionsRepository";
+import {
+  listAllTransactions,
+} from "../db/repositories/transactionsRepository";
 import { syncDashboardFromPlaid } from "../services/dashboardSyncService";
 import {
-  computeMonthlySpendingSummary,
+  listMonthlySpendingTransactionsForCategory,
+  sumSpendingTransactionAmounts,
+  summarizeMonthlySpending,
   type MonthlySpendingSummary,
 } from "../services/monthlySpendingService";
 import {
@@ -57,6 +62,7 @@ export function Dashboard() {
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [monthlySpending, setMonthlySpending] = useState<MonthlySpendingSummary | null>(
     null,
@@ -64,22 +70,37 @@ export function Dashboard() {
   const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(
     null,
   );
+  const [selectedSpendingCategory, setSelectedSpendingCategory] = useState<string | null>(
+    null,
+  );
   const [transactionSearchQuery, setTransactionSearchQuery] = useState("");
   const hasLoadedOnce = useRef(false);
   const refreshInFlight = useRef(false);
 
   const loadLocalDashboardData = useCallback(async () => {
-    const [accountRows, transactionRows, subscriptionRows, spendingSummary, syncSetting] =
+    const [accountRows, allTransactionRows, subscriptionRows, syncSetting] =
       await Promise.all([
         listAccounts(),
-        listRecentTransactions(RECENT_TRANSACTION_LIMIT),
+        listAllTransactions(),
         listDetectedSubscriptions(),
-        computeMonthlySpendingSummary(),
         getSetting(SETTING_KEYS.LAST_SYNC_AT),
       ]);
 
+    const recentTransactionRows = [...allTransactionRows]
+      .sort((left, right) => {
+        const dateCompare = right.date.localeCompare(left.date);
+        if (dateCompare !== 0) {
+          return dateCompare;
+        }
+        return right.created_at.localeCompare(left.created_at);
+      })
+      .slice(0, RECENT_TRANSACTION_LIMIT);
+
+    const spendingSummary = summarizeMonthlySpending(allTransactionRows);
+
     setAccounts(accountRows);
-    setTransactions(transactionRows);
+    setAllTransactions(allTransactionRows);
+    setTransactions(recentTransactionRows);
     setSubscriptions(subscriptionRows);
     setMonthlySpending(spendingSummary);
     setLastSyncedAt(syncSetting?.value ?? null);
@@ -143,9 +164,43 @@ export function Dashboard() {
     [transactions, accountLabelById],
   );
 
-  const selectedTransaction = useMemo(
-    () => transactionRows.find((row) => row.id === selectedTransactionId) ?? null,
-    [transactionRows, selectedTransactionId],
+  const selectedTransaction = useMemo(() => {
+    if (!selectedTransactionId) {
+      return null;
+    }
+
+    const transaction =
+      allTransactions.find((row) => row.id === selectedTransactionId) ??
+      transactions.find((row) => row.id === selectedTransactionId);
+
+    if (!transaction) {
+      return null;
+    }
+
+    return {
+      ...transaction,
+      accountLabel: accountLabelById.get(transaction.account_id) ?? "Account",
+    };
+  }, [selectedTransactionId, allTransactions, transactions, accountLabelById]);
+
+  const categorySpendingRows = useMemo(() => {
+    if (!selectedSpendingCategory || !monthlySpending) {
+      return [];
+    }
+
+    return listMonthlySpendingTransactionsForCategory(
+      allTransactions,
+      selectedSpendingCategory,
+      monthlySpending.monthKey,
+    ).map((transaction) => ({
+      ...transaction,
+      accountLabel: accountLabelById.get(transaction.account_id) ?? "Account",
+    }));
+  }, [selectedSpendingCategory, allTransactions, monthlySpending, accountLabelById]);
+
+  const categorySpendingTotal = useMemo(
+    () => sumSpendingTransactionAmounts(categorySpendingRows),
+    [categorySpendingRows],
   );
 
   const normalizedTransactionSearch = useMemo(
@@ -290,6 +345,7 @@ export function Dashboard() {
                 {monthlySpending.topCategories.map((categorySpend) => (
                   <ListRow
                     key={categorySpend.category}
+                    onPress={() => setSelectedSpendingCategory(categorySpend.category)}
                     trailing={
                       <Text className="text-base font-semibold text-red-600">
                         {formatCurrency(categorySpend.amount)}
@@ -415,6 +471,16 @@ export function Dashboard() {
           </Pressable>
         </View>
       ) : null}
+
+      <CategorySpendingModal
+        visible={selectedSpendingCategory !== null}
+        category={selectedSpendingCategory}
+        monthLabel={monthlySpending?.monthLabel ?? "This month"}
+        transactions={categorySpendingRows}
+        categoryTotal={categorySpendingTotal}
+        onClose={() => setSelectedSpendingCategory(null)}
+        onSelectTransaction={setSelectedTransactionId}
+      />
 
       <TransactionDetailModal
         visible={selectedTransactionId !== null}
