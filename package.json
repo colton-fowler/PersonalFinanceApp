@@ -1,22 +1,12 @@
 {
   "name": "rmoney",
-  "version": "1.0.0",
-  "main": "index.ts",
-  "dependencies": {
-    "expo": "~56.0.3",
-    "expo-status-bar": "~56.0.4",
-    "react": "19.2.3",
-    "react-native": "0.85.3"
-  },
-  "devDependencies": {
-    "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
-  },
+  "version": "0.2.0",
+  "private": true,
+  "description": "Local-only personal finance app with private Plaid proxy. Install deps in mobile/ and server/ only.",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
-  },
-  "private": true
+    "mobile": "npm run start --prefix mobile",
+    "mobile:typecheck": "npm run typecheck --prefix mobile",
+    "server": "npm run dev --prefix server",
+    "server:typecheck": "npm run typecheck --prefix server"
+  }
 }

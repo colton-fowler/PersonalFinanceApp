@@ -1,41 +1,54 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# Dependencies
 node_modules/
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
+# Environment & secrets (never commit)
+.env
+.env.local
+.env.*.local
+server/.env
+!server/.env.example
 
-# Native
-.kotlin/
-*.orig.*
+# Local financial databases (on-device only)
+*.db
+*.sqlite
+*.sqlite3
+**/rmoney_local.db
+
+# Expo / React Native (mobile)
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+
+# Metro
+.metro-health-check*
+
+# Server build output
+server/dist/
+
+# Native generated (if prebuild is run from mobile)
+mobile/ios/
+mobile/android/
+
+# OS & IDE
+.DS_Store
+*.pem
+Thumbs.db
+.idea/
+.vscode/
+
+# Debug logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# TypeScript
+*.tsbuildinfo
+
+# Keys & certs
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-# generated native folders
-/ios
-/android
