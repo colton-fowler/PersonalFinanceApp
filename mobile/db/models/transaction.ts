@@ -1,3 +1,5 @@
+export type CategorySource = "plaid" | "manual";
+
 /** Local transaction row — names, amounts, merchants are sensitive. */
 export type Transaction = {
   id: string;
@@ -9,6 +11,7 @@ export type Transaction = {
   /** Stored in SQLite as transaction_date (YYYY-MM-DD). */
   date: string;
   category: string;
+  category_source: CategorySource;
   pending: boolean;
   iso_currency_code: string | null;
   created_at: string;
@@ -24,6 +27,7 @@ export type TransactionInsert = {
   amount: number;
   date: string;
   category: string;
+  category_source?: CategorySource;
   pending?: boolean;
   iso_currency_code?: string | null;
   created_at?: string;
@@ -38,6 +42,7 @@ export type TransactionUpdate = Partial<
     | "amount"
     | "date"
     | "category"
+    | "category_source"
     | "pending"
     | "iso_currency_code"
     | "updated_at"
@@ -52,6 +57,7 @@ export type TransactionRow = {
   name: string;
   amount: number;
   category: string;
+  category_source: string;
   transaction_date: string;
   merchant_name: string | null;
   recurring: number;
@@ -71,6 +77,7 @@ export function transactionFromRow(row: TransactionRow): Transaction {
     amount: row.amount,
     date: row.transaction_date,
     category: row.category,
+    category_source: row.category_source === "manual" ? "manual" : "plaid",
     pending: row.pending === 1,
     iso_currency_code: row.iso_currency_code,
     created_at: row.created_at,

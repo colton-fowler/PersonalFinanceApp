@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { DashboardEmptyState } from "../components/dashboard/DashboardEmptyState";
 import { DashboardSection } from "../components/dashboard/DashboardSection";
+import { TransactionDetailModal } from "../components/transactions/TransactionDetailModal";
 import type { Account } from "../db/models/account";
 import { SETTING_KEYS } from "../db/models/setting";
 import type { Subscription } from "../db/models/subscription";
@@ -52,6 +53,9 @@ export function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [monthlySpending, setMonthlySpending] = useState<MonthlySpendingSummary | null>(
+    null,
+  );
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(
     null,
   );
   const hasLoadedOnce = useRef(false);
@@ -130,6 +134,11 @@ export function Dashboard() {
           accountLabelById.get(transaction.account_id) ?? "Account",
       })),
     [transactions, accountLabelById],
+  );
+
+  const selectedTransaction = useMemo(
+    () => transactionRows.find((row) => row.id === selectedTransactionId) ?? null,
+    [transactionRows, selectedTransactionId],
   );
 
   const totalBalance = sumAccountBalances(accounts);
@@ -327,6 +336,7 @@ export function Dashboard() {
                   return (
                     <ListRow
                       key={transaction.id}
+                      onPress={() => setSelectedTransactionId(transaction.id)}
                       trailing={
                         <Text
                           className={`text-base font-semibold ${
@@ -376,6 +386,14 @@ export function Dashboard() {
           </Pressable>
         </View>
       ) : null}
+
+      <TransactionDetailModal
+        visible={selectedTransactionId !== null}
+        transactionId={selectedTransactionId}
+        accountLabel={selectedTransaction?.accountLabel ?? "Account"}
+        onClose={() => setSelectedTransactionId(null)}
+        onCategorySaved={() => void loadLocalDashboardData()}
+      />
     </ScrollView>
   );
 }
@@ -383,14 +401,34 @@ export function Dashboard() {
 function ListRow({
   children,
   trailing,
+  onPress,
 }: {
   children: ReactNode;
   trailing: ReactNode;
+  onPress?: () => void;
 }) {
-  return (
-    <View className="flex-row items-start justify-between border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
+  const content = (
+    <>
       <View className="flex-1 pr-3">{children}</View>
       {trailing}
-    </View>
+    </>
+  );
+
+  if (!onPress) {
+    return (
+      <View className="flex-row items-start justify-between border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
+        {content}
+      </View>
+    );
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      className="flex-row items-start justify-between border-t border-slate-100 pt-3 active:bg-slate-50 first:border-t-0 first:pt-0"
+      accessibilityRole="button"
+    >
+      {content}
+    </Pressable>
   );
 }

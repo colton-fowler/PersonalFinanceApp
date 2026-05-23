@@ -19,13 +19,14 @@ export async function createTransaction(
   const createdAt = input.created_at ?? isoNow();
   const updatedAt = input.updated_at ?? createdAt;
   const pending = input.pending ? 1 : 0;
+  const categorySource = input.category_source ?? "plaid";
 
   await conn.runAsync(
     `INSERT INTO transactions (
       id, plaid_transaction_id, account_id, transaction_name, name, amount, category,
-      transaction_date, merchant_name, recurring, pending, iso_currency_code,
-      created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+      category_source, transaction_date, merchant_name, recurring, pending,
+      iso_currency_code, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
     [
       id,
       input.plaid_transaction_id ?? null,
@@ -34,6 +35,7 @@ export async function createTransaction(
       input.name,
       input.amount,
       input.category,
+      categorySource,
       input.date,
       input.merchant_name ?? null,
       pending,
@@ -62,6 +64,8 @@ export async function upsertTransactionByPlaidId(
   );
 
   if (existing) {
+    const preserveManualCategory =
+      transactionFromRow(existing).category_source === "manual";
     const updated = await updateTransaction(
       existing.id,
       {
@@ -69,7 +73,7 @@ export async function upsertTransactionByPlaidId(
         merchant_name: input.merchant_name ?? null,
         amount: input.amount,
         date: input.date,
-        category: input.category,
+        ...(preserveManualCategory ? {} : { category: input.category }),
         pending: input.pending ?? false,
         iso_currency_code: input.iso_currency_code ?? null,
         updated_at: input.updated_at ?? isoNow(),
@@ -158,6 +162,10 @@ export async function updateTransaction(
     fields.push("category = ?");
     values.push(patch.category);
   }
+  if (patch.category_source !== undefined) {
+    fields.push("category_source = ?");
+    values.push(patch.category_source);
+  }
   if (patch.date !== undefined) {
     fields.push("transaction_date = ?");
     values.push(patch.date);
@@ -190,6 +198,23 @@ export async function updateTransaction(
   );
   safeLogger.debug("Transaction row updated", { rowCount: 1 });
   return getTransactionById(id, conn);
+}
+
+/** Persists a user-chosen category; marked manual so Plaid sync won't overwrite it. */
+export async function setTransactionCategoryManual(
+  id: string,
+  category: string,
+  db?: SQLite.SQLiteDatabase,
+): Promise<Transaction | null> {
+  return updateTransaction(
+    id,
+    {
+      category,
+      category_source: "manual",
+      updated_at: isoNow(),
+    },
+    db,
+  );
 }
 
 export async function deleteTransaction(
