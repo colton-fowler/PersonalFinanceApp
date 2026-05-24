@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Text, View } from "react-native";
+import { Card } from "../ui/Card";
 import {
-  ActivityIndicator,
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+  DestructiveButton,
+  PrimaryButton,
+  SecondaryButton,
+} from "../ui/Button";
+import { ListRow } from "../ui/ListRow";
+import { MerchantAvatar } from "../ui/MerchantAvatar";
+import { ModalShell } from "../ui/ModalShell";
+import { Pill } from "../ui/Pill";
 import type { Subscription } from "../../db/models/subscription";
 import type { Transaction } from "../../db/models/transaction";
 import { getSubscriptionById } from "../../db/repositories/subscriptionsRepository";
@@ -23,6 +26,7 @@ import {
   formatTransactionAmount,
   formatTransactionDate,
 } from "../../utils/formatTransactionAmount";
+import { getSubscriptionStatusBadge } from "../../utils/subscriptionUi";
 
 type SubscriptionDetailModalProps = {
   visible: boolean;
@@ -106,162 +110,141 @@ export function SubscriptionDetailModal({
       ? "Predicted weekly amount"
       : "Predicted monthly amount";
 
+  const statusBadge = subscription ? getSubscriptionStatusBadge(subscription) : null;
+
   return (
-    <Modal
+    <ModalShell
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      title="Subscription"
+      subtitle={subscription?.display_name}
+      onClose={onClose}
+      loading={loading}
     >
-      <View className="flex-1 bg-slate-50">
-        <View className="flex-row items-center justify-between border-b border-slate-200 bg-white px-5 pb-4 pt-14">
-          <Text className="text-lg font-semibold text-slate-900">Subscription</Text>
-          <Pressable
-            onPress={onClose}
-            className="rounded-lg px-3 py-2 active:bg-slate-100"
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-          >
-            <Text className="font-semibold text-brand-600">Close</Text>
-          </Pressable>
-        </View>
+      {!loading && subscription && statusBadge ? (
+        <>
+          <Card variant="elevated">
+            <View className="flex-row items-start">
+              <MerchantAvatar label={subscription.display_name} />
+              <View className="ml-4 min-w-0 flex-1">
+                <Text className="text-xl font-bold tracking-tight text-slate-900">
+                  {subscription.display_name}
+                </Text>
+                <View className="mt-2 flex-row flex-wrap gap-1.5">
+                  <Pill label={statusBadge.label} tone={statusBadge.tone} />
+                  <Pill label={formatCadenceLabel(subscription.cadence)} tone="neutral" />
+                </View>
+                <Text className="mt-3 text-sm leading-5 text-slate-500">
+                  {formatSubscriptionConfidenceLabel(subscription)}
+                </Text>
+              </View>
+            </View>
 
-        {loading ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator size="large" color="#0284c7" />
-          </View>
-        ) : null}
-
-        {!loading && subscription ? (
-          <ScrollView
-            className="flex-1"
-            contentContainerClassName="gap-5 px-5 pb-10 pt-5"
-          >
-            <View className="rounded-2xl bg-white px-5 py-5 shadow-sm">
-              <Text className="text-xl font-bold text-slate-900">
-                {subscription.display_name}
-              </Text>
-              <Text className="mt-1 text-sm text-slate-500">
-                {formatSubscriptionConfidenceLabel(subscription)}
-              </Text>
-              <Text className="mt-4 text-sm font-medium text-slate-500">
+            <View className="mt-6 border-t border-slate-100 pt-5">
+              <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 {amountLabel}
               </Text>
-              <Text className="mt-1 text-3xl font-bold text-slate-900">
+              <Text className="mt-1 text-4xl font-bold tracking-tight text-slate-900">
                 {formatCurrency(subscription.estimated_amount)}
               </Text>
-              <Text className="mt-3 text-sm text-slate-500">
-                {formatCadenceLabel(subscription.cadence)} · Next expected{" "}
-                {formatTransactionDate(subscription.next_estimated_charge_date)}
+              <Text className="mt-2 text-sm text-slate-500">
+                Next expected {formatTransactionDate(subscription.next_estimated_charge_date)}
               </Text>
             </View>
+          </Card>
 
-            <View className="rounded-2xl bg-white px-5 py-5 shadow-sm">
-              <Text className="text-base font-semibold text-slate-900">
-                Recent matching charges
+          <Card variant="elevated">
+            <Text className="text-base font-bold text-slate-900">Recent matching charges</Text>
+            {matchingTransactions.length === 0 ? (
+              <Text className="mt-3 text-sm text-slate-500">
+                No matching transactions found.
               </Text>
-              {matchingTransactions.length === 0 ? (
-                <Text className="mt-3 text-sm text-slate-500">
-                  No matching transactions found.
-                </Text>
-              ) : (
-                <View className="mt-3">
-                  {matchingTransactions.map((transaction) => {
-                    const displayName = transaction.merchant_name ?? transaction.name;
-                    const amountDisplay = formatTransactionAmount(transaction.amount);
+            ) : (
+              <View className="mt-2">
+                {matchingTransactions.map((transaction, index) => {
+                  const displayName = transaction.merchant_name ?? transaction.name;
+                  const amountDisplay = formatTransactionAmount(transaction.amount);
 
-                    return (
-                      <View
-                        key={transaction.id}
-                        className="flex-row items-start justify-between border-t border-slate-100 pt-3 first:border-t-0 first:pt-0"
-                      >
-                        <View className="flex-1 pr-3">
-                          <Text className="font-medium text-slate-900">{displayName}</Text>
-                          <Text className="mt-1 text-sm text-slate-500">
-                            {formatTransactionDate(transaction.date)}
-                          </Text>
-                        </View>
-                        <Text className="text-base font-semibold text-red-600">
+                  return (
+                    <ListRow
+                      key={transaction.id}
+                      isFirst={index === 0}
+                      title={displayName}
+                      subtitle={formatTransactionDate(transaction.date)}
+                      trailing={
+                        <Text className="text-base font-bold tabular-nums text-rose-600">
                           {amountDisplay.text}
                         </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
+                      }
+                    />
+                  );
+                })}
+              </View>
+            )}
+          </Card>
+
+          <Card variant="elevated">
+            <Text className="text-base font-bold text-slate-900">Your review</Text>
+            <Text className="mt-1 text-sm leading-5 text-slate-500">
+              Confirm real subscriptions or hide false positives to improve detection.
+            </Text>
+
+            <View className="mt-5 gap-4">
+              <View>
+                <PrimaryButton
+                  title="Confirm subscription"
+                  onPress={() => void runAction("confirm", confirmSubscription)}
+                  loading={savingAction === "confirm"}
+                  disabled={Boolean(savingAction)}
+                />
+                <Text className="mt-2 text-xs leading-5 text-slate-500">
+                  Keep this subscription on your dashboard after future syncs.
+                </Text>
+              </View>
+
+              <View className="border-t border-slate-100 pt-4">
+                <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Hide this pattern
+                </Text>
+                <SecondaryButton
+                  title="Not a subscription"
+                  onPress={() => void runAction("reject", rejectSubscription)}
+                  loading={savingAction === "reject"}
+                  disabled={Boolean(savingAction)}
+                />
+                <Text className="mt-2 text-xs leading-5 text-slate-500">
+                  Only hides this amount and cadence. Other patterns from this merchant may
+                  still appear.
+                </Text>
+              </View>
+
+              <View className="border-t border-slate-100 pt-4">
+                <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Block merchant
+                </Text>
+                <DestructiveButton
+                  title="Ignore this merchant"
+                  onPress={() => void runAction("ignore", ignoreSubscriptionMerchant)}
+                  loading={savingAction === "ignore"}
+                  disabled={Boolean(savingAction)}
+                />
+                <Text className="mt-2 text-xs leading-5 text-slate-500">
+                  Stops detecting subscriptions from this merchant in the future.
+                </Text>
+              </View>
             </View>
+          </Card>
 
-            <View className="rounded-2xl bg-white px-5 py-5 shadow-sm">
-              <Text className="text-base font-semibold text-slate-900">Your review</Text>
-              <Text className="mt-1 text-sm text-slate-500">
-                Help improve detection by confirming real subscriptions or hiding false
-                positives.
-              </Text>
+          {error ? (
+            <Text className="text-center text-sm text-rose-600">{error}</Text>
+          ) : null}
+        </>
+      ) : null}
 
-              <Pressable
-                onPress={() => void runAction("confirm", confirmSubscription)}
-                disabled={Boolean(savingAction)}
-                className={`mt-4 items-center rounded-xl bg-brand-600 py-3 ${
-                  savingAction ? "opacity-50" : "active:bg-brand-700"
-                }`}
-              >
-                {savingAction === "confirm" ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text className="font-semibold text-white">Confirm subscription</Text>
-                )}
-              </Pressable>
-
-              <Text className="mt-3 text-sm text-slate-500">
-                Mark this recurring charge pattern as not a subscription. Other
-                patterns from this merchant may still appear.
-              </Text>
-
-              <Pressable
-                onPress={() => void runAction("reject", rejectSubscription)}
-                disabled={Boolean(savingAction)}
-                className={`mt-2 items-center rounded-xl border border-slate-200 py-3 ${
-                  savingAction ? "opacity-50" : "active:bg-slate-50"
-                }`}
-              >
-                {savingAction === "reject" ? (
-                  <ActivityIndicator size="small" color="#0284c7" />
-                ) : (
-                  <Text className="font-semibold text-slate-700">Not a subscription</Text>
-                )}
-              </Pressable>
-
-              <Text className="mt-3 text-sm text-slate-500">
-                Stop detecting any subscription from this merchant in the future.
-              </Text>
-
-              <Pressable
-                onPress={() => void runAction("ignore", ignoreSubscriptionMerchant)}
-                disabled={Boolean(savingAction)}
-                className={`mt-2 items-center rounded-xl border border-red-200 py-3 ${
-                  savingAction ? "opacity-50" : "active:bg-red-50"
-                }`}
-              >
-                {savingAction === "ignore" ? (
-                  <ActivityIndicator size="small" color="#dc2626" />
-                ) : (
-                  <Text className="font-semibold text-red-700">Ignore this merchant</Text>
-                )}
-              </Pressable>
-            </View>
-
-            {error ? (
-              <Text className="text-center text-sm text-red-600">{error}</Text>
-            ) : null}
-          </ScrollView>
-        ) : null}
-
-        {!loading && !subscription && error ? (
-          <View className="flex-1 items-center justify-center px-6">
-            <Text className="text-center text-slate-600">{error}</Text>
-          </View>
-        ) : null}
-      </View>
-    </Modal>
+      {!loading && !subscription && error ? (
+        <Card variant="muted">
+          <Text className="text-center text-slate-600">{error}</Text>
+        </Card>
+      ) : null}
+    </ModalShell>
   );
 }

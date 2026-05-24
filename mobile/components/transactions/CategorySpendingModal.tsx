@@ -1,6 +1,10 @@
-import { Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { DashboardEmptyState } from "../dashboard/DashboardEmptyState";
 import { TransactionCategoryChip } from "./TransactionCategoryChip";
+import { Card } from "../ui/Card";
+import { ListRow } from "../ui/ListRow";
+import { MerchantAvatar } from "../ui/MerchantAvatar";
+import { ModalShell } from "../ui/ModalShell";
 import type { Transaction } from "../../db/models/transaction";
 import { formatCurrency } from "../../utils/formatCurrency";
 import {
@@ -34,78 +38,55 @@ export function CategorySpendingModal({
   const title = category ?? "Category";
 
   return (
-    <Modal
+    <ModalShell
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      title={title}
+      subtitle={`${monthLabel} spending`}
+      onClose={onClose}
+      headerExtra={
+        transactions.length > 0 ? (
+          <Text className="mt-3 text-2xl font-bold tabular-nums text-rose-600">
+            {formatCurrency(categoryTotal)}
+          </Text>
+        ) : undefined
+      }
     >
-      <View className="flex-1 bg-slate-50">
-        <View className="border-b border-slate-200 bg-white px-5 pb-4 pt-14">
-          <View className="flex-row items-start justify-between">
-            <View className="flex-1 pr-4">
-              <Text className="text-lg font-semibold text-slate-900">{title}</Text>
-              <Text className="mt-1 text-sm text-slate-500">{monthLabel} spending</Text>
-              {transactions.length > 0 ? (
-                <Text className="mt-2 text-base font-bold text-red-600">
-                  {formatCurrency(categoryTotal)}
-                </Text>
-              ) : null}
-            </View>
-            <Pressable
-              onPress={onClose}
-              className="rounded-lg px-3 py-2 active:bg-slate-100"
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-            >
-              <Text className="font-semibold text-brand-600">Close</Text>
-            </Pressable>
-          </View>
-        </View>
+      {transactions.length === 0 ? (
+        <DashboardEmptyState message="No transactions in this category for the selected month." />
+      ) : (
+        <Card variant="elevated" className="px-1 py-1">
+          {transactions.map((transaction, index) => {
+            const displayName = transaction.merchant_name ?? transaction.name;
+            const amountDisplay = formatTransactionAmount(transaction.amount);
 
-        <ScrollView
-          className="flex-1"
-          contentContainerClassName="px-5 pb-10 pt-4"
-        >
-          {transactions.length === 0 ? (
-            <DashboardEmptyState message="No transactions in this category for the selected month." />
-          ) : (
-            <View className="rounded-2xl bg-white px-4 py-4 shadow-sm">
-              {transactions.map((transaction) => {
-                const displayName = transaction.merchant_name ?? transaction.name;
-                const amountDisplay = formatTransactionAmount(transaction.amount);
-
-                return (
-                  <Pressable
-                    key={transaction.id}
-                    onPress={() => onSelectTransaction(transaction.id)}
-                    className="flex-row items-start justify-between border-t border-slate-100 pt-3 active:bg-slate-50 first:border-t-0 first:pt-0"
-                    accessibilityRole="button"
+            return (
+              <ListRow
+                key={transaction.id}
+                isFirst={index === 0}
+                onPress={() => onSelectTransaction(transaction.id)}
+                leading={<MerchantAvatar label={displayName} size="sm" />}
+                title={displayName}
+                subtitle={`${formatTransactionDate(transaction.date)} · ${transaction.accountLabel}`}
+                trailing={
+                  <Text
+                    className={`text-base font-bold tabular-nums ${
+                      amountDisplay.isOutflow ? "text-rose-600" : "text-emerald-700"
+                    }`}
                   >
-                    <View className="flex-1 pr-3">
-                      <Text className="font-medium text-slate-900">{displayName}</Text>
-                      <TransactionCategoryChip
-                        category={transaction.category}
-                        categorySource={transaction.category_source}
-                      />
-                      <Text className="mt-1 text-sm text-slate-500">
-                        {formatTransactionDate(transaction.date)} · {transaction.accountLabel}
-                      </Text>
-                    </View>
-                    <Text
-                      className={`text-base font-semibold ${
-                        amountDisplay.isOutflow ? "text-red-600" : "text-green-700"
-                      }`}
-                    >
-                      {amountDisplay.text}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
-        </ScrollView>
-      </View>
-    </Modal>
+                    {amountDisplay.text}
+                  </Text>
+                }
+              >
+                <TransactionCategoryChip
+                  category={transaction.category}
+                  categorySource={transaction.category_source}
+                  className="mt-1.5"
+                />
+              </ListRow>
+            );
+          })}
+        </Card>
+      )}
+    </ModalShell>
   );
 }

@@ -4,6 +4,7 @@ module.exports = {
     "./App.{js,jsx,ts,tsx}",
     "./app/**/*.{js,jsx,ts,tsx}",
     "./components/**/*.{js,jsx,ts,tsx}",
+    "./components/ui/**/*.{js,jsx,ts,tsx}",
     "./components/dashboard/**/*.{js,jsx,ts,tsx}",
     "./screens/**/*.{js,jsx,ts,tsx}",
     "./security/**/*.{js,jsx,ts,tsx}",
@@ -14,6 +15,10 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        surface: {
+          50: "#f6f8fb",
+          100: "#eef2f7",
+        },
         brand: {
           50: "#eef9ff",
           100: "#d9f1ff",

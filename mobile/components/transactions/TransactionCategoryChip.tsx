@@ -1,4 +1,4 @@
-import { Text, View } from "react-native";
+import { Pill } from "../ui/Pill";
 import type { CategorySource } from "../../db/models/transaction";
 
 export function formatCategoryChipLabel(
@@ -18,29 +18,26 @@ export function formatCategoryChipLabel(
 type TransactionCategoryChipProps = {
   category: string;
   categorySource: CategorySource;
+  className?: string;
 };
 
 export function TransactionCategoryChip({
   category,
   categorySource,
+  className = "mt-1.5",
 }: TransactionCategoryChipProps) {
-  const isManual = categorySource === "manual";
-  const isRule = categorySource === "rule";
+  const tone =
+    categorySource === "manual"
+      ? "brand"
+      : categorySource === "rule"
+        ? "violet"
+        : "neutral";
 
   return (
-    <View
-      className={`mt-1.5 self-start rounded-full px-2 py-0.5 ${
-        isManual ? "bg-brand-50" : isRule ? "bg-violet-50" : "bg-slate-100"
-      }`}
-    >
-      <Text
-        className={`text-xs font-medium ${
-          isManual ? "text-brand-700" : isRule ? "text-violet-700" : "text-slate-600"
-        }`}
-        numberOfLines={1}
-      >
-        {formatCategoryChipLabel(category, categorySource)}
-      </Text>
-    </View>
+    <Pill
+      label={formatCategoryChipLabel(category, categorySource)}
+      tone={tone}
+      className={className}
+    />
   );
 }

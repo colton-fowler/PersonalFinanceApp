@@ -1,11 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Text, View } from "react-native";
 import { DashboardEmptyState } from "../components/dashboard/DashboardEmptyState";
 import { DashboardSection } from "../components/dashboard/DashboardSection";
 import { SubscriptionDetailModal } from "../components/subscriptions/SubscriptionDetailModal";
@@ -13,6 +7,12 @@ import { CategorySpendingModal } from "../components/transactions/CategorySpendi
 import { TransactionCategoryChip } from "../components/transactions/TransactionCategoryChip";
 import { TransactionDetailModal } from "../components/transactions/TransactionDetailModal";
 import { TransactionSearchInput } from "../components/transactions/TransactionSearchInput";
+import { Card } from "../components/ui/Card";
+import { ListRow } from "../components/ui/ListRow";
+import { MerchantAvatar } from "../components/ui/MerchantAvatar";
+import { Pill } from "../components/ui/Pill";
+import { PrimaryButton, SecondaryButton } from "../components/ui/Button";
+import { ScreenContainer } from "../components/ui/ScreenContainer";
 import type { Account } from "../db/models/account";
 import { SETTING_KEYS } from "../db/models/setting";
 import type { Subscription } from "../db/models/subscription";
@@ -20,9 +20,7 @@ import type { Transaction } from "../db/models/transaction";
 import { listAccounts } from "../db/repositories/accountsRepository";
 import { getSetting } from "../db/repositories/settingsRepository";
 import { listVisibleSubscriptions } from "../db/repositories/subscriptionsRepository";
-import {
-  listAllTransactions,
-} from "../db/repositories/transactionsRepository";
+import { listAllTransactions } from "../db/repositories/transactionsRepository";
 import { syncDashboardFromPlaid } from "../services/dashboardSyncService";
 import {
   listMonthlySpendingTransactionsForCategory,
@@ -45,6 +43,7 @@ import {
   filterTransactionRows,
   normalizeTransactionSearchQuery,
 } from "../utils/filterTransactions";
+import { getSubscriptionStatusBadge } from "../utils/subscriptionUi";
 
 type DashboardState = "loading" | "ready" | "error";
 
@@ -225,107 +224,101 @@ export function Dashboard() {
   const showFatalError = state === "error" && !hasLoadedOnce.current;
 
   return (
-    <ScrollView
-      className="flex-1 bg-slate-50"
-      contentContainerClassName="px-5 pb-12 pt-14"
-    >
-      <View className="mb-6">
-        <Text className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+    <ScreenContainer contentClassName="pb-16">
+      <View className="mb-7">
+        <Text className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
           {institutionName}
         </Text>
-        <Text className="mt-1 text-3xl font-bold text-slate-900">Dashboard</Text>
+        <Text className="mt-1.5 text-[32px] font-bold tracking-tight text-slate-900">
+          Dashboard
+        </Text>
         {lastSyncedLabel ? (
           <Text className="mt-2 text-sm text-slate-500">
-            Last refreshed {lastSyncedLabel}
+            Updated {lastSyncedLabel}
           </Text>
         ) : null}
       </View>
 
       {isRefreshing ? (
-        <View className="mb-4 flex-row items-center rounded-xl border border-brand-100 bg-brand-50 px-4 py-3">
+        <Card variant="muted" className="mb-5 flex-row items-center border border-brand-100/80">
           <ActivityIndicator size="small" color="#0284c7" />
-          <Text className="ml-3 text-sm text-brand-700">Refreshing dashboard…</Text>
-        </View>
+          <Text className="ml-3 text-sm font-medium text-brand-700">
+            Refreshing your finances…
+          </Text>
+        </Card>
       ) : null}
 
       {syncError ? (
-        <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-          <Text className="text-sm leading-5 text-red-700">{syncError}</Text>
-        </View>
+        <Card variant="muted" className="mb-5 border border-rose-200/80 bg-rose-50/50">
+          <Text className="text-sm leading-5 text-rose-700">{syncError}</Text>
+        </Card>
       ) : null}
 
       {showInitialLoading ? (
-        <View className="items-center rounded-2xl border border-slate-100 bg-white px-6 py-14 shadow-sm">
+        <Card variant="elevated" className="items-center py-16">
           <ActivityIndicator size="large" color="#0284c7" />
-          <Text className="mt-4 text-center text-base font-medium text-slate-900">
+          <Text className="mt-5 text-center text-lg font-semibold text-slate-900">
             Setting up your dashboard
           </Text>
-          <Text className="mt-2 text-center text-sm leading-5 text-slate-500">
+          <Text className="mt-2 max-w-xs text-center text-sm leading-5 text-slate-500">
             Syncing accounts, transactions, subscriptions, and spending totals.
           </Text>
-        </View>
+        </Card>
       ) : null}
 
       {showFatalError ? (
-        <View className="rounded-2xl border border-slate-100 bg-white px-5 py-6 shadow-sm">
-          <Text className="text-center text-base font-medium text-slate-900">
+        <Card variant="elevated" className="items-center py-8">
+          <Text className="text-center text-lg font-semibold text-slate-900">
             Couldn&apos;t load dashboard
           </Text>
-          <Text className="mt-2 text-center text-sm leading-5 text-red-600">
+          <Text className="mt-2 text-center text-sm leading-5 text-rose-600">
             {GENERIC_ERROR}
           </Text>
-          <Pressable
+          <PrimaryButton
+            title="Try again"
             onPress={() => void loadDashboard("initial")}
             disabled={isRefreshing}
-            className={`mt-4 items-center rounded-xl bg-brand-600 py-3 ${
-              isRefreshing ? "opacity-50" : "active:bg-brand-700"
-            }`}
-          >
-            <Text className="font-semibold text-white">Try again</Text>
-          </Pressable>
-        </View>
+            className="mt-5 w-full"
+          />
+        </Card>
       ) : null}
 
       {state === "ready" ? (
-        <View className="gap-5">
-          <View className="rounded-2xl bg-brand-600 px-6 py-7 shadow-md">
-            <Text className="text-sm font-medium text-brand-100">Total balance</Text>
-            <Text className="mt-2 text-4xl font-bold text-white">
+        <View className="gap-6">
+          <Card variant="hero" className="overflow-hidden">
+            <View className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/5" />
+            <View className="absolute -bottom-16 -left-8 h-40 w-40 rounded-full bg-brand-500/10" />
+            <Text className="text-sm font-medium text-slate-300">Total balance</Text>
+            <Text className="mt-2 text-[40px] font-bold tracking-tight text-white">
               {formatCurrency(totalBalance)}
             </Text>
-            <Text className="mt-2 text-sm text-brand-100">
+            <Text className="mt-2 text-sm text-slate-400">
               {accounts.length > 0
-                ? `Across ${accounts.length} linked account${accounts.length === 1 ? "" : "s"}`
+                ? `${accounts.length} linked account${accounts.length === 1 ? "" : "s"}`
                 : "Connect a bank to see balances"}
             </Text>
-          </View>
+          </Card>
 
-          <DashboardSection
-            title="Accounts"
-            subtitle="Balances by account type"
-          >
+          <DashboardSection title="Accounts" subtitle="By account type">
             {groups.length === 0 ? (
-              <DashboardEmptyState message="No linked accounts yet. Connect your bank, then refresh to pull balances." />
+              <DashboardEmptyState
+                title="No accounts yet"
+                message="Connect your bank, then refresh to pull balances."
+              />
             ) : (
-              <View className="gap-3">
-                {groups.map((group) => (
-                  <View
+              <View>
+                {groups.map((group, index) => (
+                  <ListRow
                     key={group.key}
-                    className="flex-row items-center justify-between rounded-xl bg-slate-50 px-4 py-4"
-                  >
-                    <View className="flex-1 pr-4">
-                      <Text className="text-base font-semibold text-slate-900">
-                        {group.label}
+                    isFirst={index === 0}
+                    title={group.label}
+                    subtitle={`${group.accounts.length} account${group.accounts.length === 1 ? "" : "s"}`}
+                    trailing={
+                      <Text className="text-lg font-bold tabular-nums text-slate-900">
+                        {formatCurrency(group.total)}
                       </Text>
-                      <Text className="mt-1 text-sm text-slate-500">
-                        {group.accounts.length} account
-                        {group.accounts.length === 1 ? "" : "s"}
-                      </Text>
-                    </View>
-                    <Text className="text-lg font-bold text-slate-900">
-                      {formatCurrency(group.total)}
-                    </Text>
-                  </View>
+                    }
+                  />
                 ))}
               </View>
             )}
@@ -336,74 +329,89 @@ export function Dashboard() {
             subtitle={monthlySpending?.monthLabel ?? "This month"}
           >
             {monthlySpending && monthlySpending.totalSpent > 0 ? (
-              <View className="gap-3">
-                <View className="rounded-xl bg-slate-50 px-4 py-4">
-                  <Text className="text-sm font-medium text-slate-500">
-                    Total spent this month
+              <View>
+                <Card variant="muted" className="mb-4">
+                  <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Spent this month
                   </Text>
-                  <Text className="mt-1 text-2xl font-bold text-slate-900">
+                  <Text className="mt-1 text-3xl font-bold tracking-tight text-slate-900">
                     {formatCurrency(monthlySpending.totalSpent)}
                   </Text>
-                </View>
+                </Card>
 
-                {monthlySpending.topCategories.map((categorySpend) => (
+                {monthlySpending.topCategories.map((categorySpend, index) => (
                   <ListRow
                     key={categorySpend.category}
+                    isFirst={index === 0}
                     onPress={() => setSelectedSpendingCategory(categorySpend.category)}
+                    title={categorySpend.category}
+                    subtitle={`${categorySpend.percentage}% of monthly spend`}
                     trailing={
-                      <Text className="text-base font-semibold text-red-600">
-                        {formatCurrency(categorySpend.amount)}
-                      </Text>
+                      <View className="items-end">
+                        <Text className="text-base font-bold tabular-nums text-rose-600">
+                          {formatCurrency(categorySpend.amount)}
+                        </Text>
+                        <Text className="mt-0.5 text-xs text-slate-400">View</Text>
+                      </View>
                     }
-                  >
-                    <Text className="font-medium text-slate-900">
-                      {categorySpend.category}
-                    </Text>
-                    <Text className="mt-1 text-sm text-slate-500">
-                      {categorySpend.percentage}% of monthly spend
-                    </Text>
-                  </ListRow>
+                  />
                 ))}
               </View>
             ) : (
-              <DashboardEmptyState message="No posted spending this month yet. Expenses appear here after transactions sync." />
+              <DashboardEmptyState
+                title="No spending yet"
+                message="Posted expenses for this month will show up here after transactions sync."
+              />
             )}
           </DashboardSection>
 
           <DashboardSection
             title="Subscriptions"
-            subtitle="Detected from recurring charges"
+            subtitle="Recurring charges we detected"
           >
             {subscriptions.length === 0 ? (
-              <DashboardEmptyState message="No subscriptions detected yet. We look for at least two similar charges from the same merchant on a weekly or monthly cadence." />
+              <DashboardEmptyState
+                title="Nothing detected yet"
+                message="We look for at least two similar charges from the same merchant on a weekly or monthly cadence."
+              />
             ) : (
               <View>
-                {subscriptions.map((subscription) => (
-                  <ListRow
-                    key={subscription.id}
-                    onPress={() => setSelectedSubscriptionId(subscription.id)}
-                    trailing={
-                      <Text className="text-base font-semibold text-slate-900">
-                        {formatCurrency(subscription.estimated_amount)}
-                      </Text>
-                    }
-                  >
-                    <Text className="font-medium text-slate-900">
-                      {subscription.display_name}
-                    </Text>
-                    <Text className="mt-1 text-sm text-slate-500">
-                      {formatCadenceLabel(subscription.cadence)} · Next{" "}
-                      {formatTransactionDate(subscription.next_estimated_charge_date)}
-                    </Text>
-                  </ListRow>
-                ))}
+                {subscriptions.map((subscription, index) => {
+                  const statusBadge = getSubscriptionStatusBadge(subscription);
+
+                  return (
+                    <ListRow
+                      key={subscription.id}
+                      isFirst={index === 0}
+                      onPress={() => setSelectedSubscriptionId(subscription.id)}
+                      leading={
+                        <MerchantAvatar label={subscription.display_name} size="sm" />
+                      }
+                      title={subscription.display_name}
+                      subtitle={`Next ${formatTransactionDate(subscription.next_estimated_charge_date)}`}
+                      trailing={
+                        <Text className="text-base font-bold tabular-nums text-slate-900">
+                          {formatCurrency(subscription.estimated_amount)}
+                        </Text>
+                      }
+                    >
+                      <View className="mt-2 flex-row flex-wrap gap-1.5">
+                        <Pill label={formatCadenceLabel(subscription.cadence)} tone="neutral" />
+                        <Pill label={statusBadge.label} tone={statusBadge.tone} />
+                      </View>
+                    </ListRow>
+                  );
+                })}
               </View>
             )}
           </DashboardSection>
 
           <DashboardSection title="Recent transactions" subtitle="Last 30 days">
             {transactionRows.length === 0 ? (
-              <DashboardEmptyState message="No transactions yet. Plaid may take a few minutes after linking—refresh when ready." />
+              <DashboardEmptyState
+                title="No transactions"
+                message="Plaid may take a few minutes after linking—refresh when ready."
+              />
             ) : (
               <View>
                 <TransactionSearchInput
@@ -413,7 +421,7 @@ export function Dashboard() {
                 {filteredTransactionRows.length === 0 ? (
                   <DashboardEmptyState message="No matching transactions." />
                 ) : (
-                  filteredTransactionRows.map((transaction) => {
+                  filteredTransactionRows.map((transaction, index) => {
                     const displayName =
                       transaction.merchant_name ?? transaction.name;
                     const amountDisplay = formatTransactionAmount(transaction.amount);
@@ -421,35 +429,33 @@ export function Dashboard() {
                     return (
                       <ListRow
                         key={transaction.id}
+                        isFirst={index === 0}
                         onPress={() => setSelectedTransactionId(transaction.id)}
+                        leading={<MerchantAvatar label={displayName} size="sm" />}
+                        title={displayName}
+                        subtitle={`${formatTransactionDate(transaction.date)} · ${transaction.accountLabel}`}
                         trailing={
                           <Text
-                            className={`text-base font-semibold ${
+                            className={`text-base font-bold tabular-nums ${
                               amountDisplay.isOutflow
-                                ? "text-red-600"
-                                : "text-green-700"
+                                ? "text-rose-600"
+                                : "text-emerald-700"
                             }`}
                           >
                             {amountDisplay.text}
                           </Text>
                         }
                       >
-                        <Text className="font-medium text-slate-900">
-                          {displayName}
-                        </Text>
-                        <TransactionCategoryChip
-                          category={transaction.category}
-                          categorySource={transaction.category_source}
-                        />
-                        <Text className="mt-1 text-sm text-slate-500">
-                          {formatTransactionDate(transaction.date)} ·{" "}
-                          {transaction.accountLabel}
-                        </Text>
-                        {transaction.pending ? (
-                          <Text className="mt-1 text-xs font-medium text-amber-600">
-                            Pending
-                          </Text>
-                        ) : null}
+                        <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
+                          <TransactionCategoryChip
+                            category={transaction.category}
+                            categorySource={transaction.category_source}
+                            className="mt-0"
+                          />
+                          {transaction.pending ? (
+                            <Pill label="Pending" tone="warning" />
+                          ) : null}
+                        </View>
                       </ListRow>
                     );
                   })
@@ -458,22 +464,12 @@ export function Dashboard() {
             )}
           </DashboardSection>
 
-          <Pressable
+          <SecondaryButton
+            title={isRefreshing ? "Refreshing…" : "Refresh dashboard"}
             onPress={() => void loadDashboard("refresh")}
+            loading={isRefreshing}
             disabled={isRefreshing}
-            className={`flex-row items-center justify-center rounded-xl border border-slate-200 bg-white py-3.5 ${
-              isRefreshing ? "opacity-50" : "active:bg-slate-100"
-            }`}
-          >
-            {isRefreshing ? (
-              <ActivityIndicator size="small" color="#0284c7" />
-            ) : null}
-            <Text
-              className={`font-semibold text-brand-600 ${isRefreshing ? "ml-2" : ""}`}
-            >
-              {isRefreshing ? "Refreshing…" : "Refresh dashboard"}
-            </Text>
-          </Pressable>
+          />
         </View>
       ) : null}
 
@@ -502,41 +498,6 @@ export function Dashboard() {
         onClose={() => setSelectedTransactionId(null)}
         onCategorySaved={() => void loadLocalDashboardData()}
       />
-    </ScrollView>
-  );
-}
-
-function ListRow({
-  children,
-  trailing,
-  onPress,
-}: {
-  children: ReactNode;
-  trailing: ReactNode;
-  onPress?: () => void;
-}) {
-  const content = (
-    <>
-      <View className="flex-1 pr-3">{children}</View>
-      {trailing}
-    </>
-  );
-
-  if (!onPress) {
-    return (
-      <View className="flex-row items-start justify-between border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
-        {content}
-      </View>
-    );
-  }
-
-  return (
-    <Pressable
-      onPress={onPress}
-      className="flex-row items-start justify-between border-t border-slate-100 pt-3 active:bg-slate-50 first:border-t-0 first:pt-0"
-      accessibilityRole="button"
-    >
-      {content}
-    </Pressable>
+    </ScreenContainer>
   );
 }

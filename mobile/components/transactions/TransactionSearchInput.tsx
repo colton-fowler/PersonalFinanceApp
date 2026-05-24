@@ -12,7 +12,7 @@ export function TransactionSearchInput({
   placeholder = "Search transactions",
 }: TransactionSearchInputProps) {
   return (
-    <View className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+    <View className="mb-4 rounded-2xl border border-slate-200/80 bg-white px-4 py-3">
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -21,7 +21,7 @@ export function TransactionSearchInput({
         autoCapitalize="none"
         autoCorrect={false}
         clearButtonMode="while-editing"
-        className="text-base text-slate-900"
+        className="text-[15px] text-slate-900"
         accessibilityLabel="Search transactions"
       />
     </View>
