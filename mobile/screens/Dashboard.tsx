@@ -41,6 +41,7 @@ import {
 import { formatCadenceLabel } from "../utils/formatCadence";
 import { formatCurrency } from "../utils/formatCurrency";
 import { formatLastSyncedAt } from "../utils/formatLastSync";
+import { formatManualRefreshThrottleMessage } from "../utils/formatPlaidSyncWait";
 import {
   formatTransactionAmount,
   formatTransactionDate,
@@ -65,6 +66,7 @@ export function Dashboard() {
   const [state, setState] = useState<DashboardState>("loading");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -85,6 +87,7 @@ export function Dashboard() {
   const [transactionSearchQuery, setTransactionSearchQuery] = useState("");
   const hasLoadedOnce = useRef(false);
   const refreshInFlight = useRef(false);
+  const syncCallCount = useRef(0);
   const scrollRef = useRef<ScrollView>(null);
 
   const loadLocalDashboardData = useCallback(async () => {
@@ -118,21 +121,55 @@ export function Dashboard() {
 
   const loadDashboard = useCallback(
     async (mode: "initial" | "refresh" = "initial") => {
-      if (refreshInFlight.current) {
-        return;
-      }
-
+      const alreadySyncing = refreshInFlight.current;
+      syncCallCount.current += 1;
       refreshInFlight.current = true;
       setSyncError(null);
 
-      if (mode === "initial" && !hasLoadedOnce.current) {
-        setState("loading");
-      } else {
-        setIsRefreshing(true);
+      const isManualRefresh = mode === "refresh";
+      if (isManualRefresh) {
+        setRefreshNotice(null);
+      }
+
+      const syncSetting = await getSetting(SETTING_KEYS.LAST_SYNC_AT);
+      const hasCachedSync = Boolean(syncSetting?.value);
+      const isFirstPaint = mode === "initial" && !hasLoadedOnce.current;
+
+      if (!alreadySyncing) {
+        if (isFirstPaint) {
+          if (hasCachedSync) {
+            await loadLocalDashboardData();
+            hasLoadedOnce.current = true;
+            setState("ready");
+          } else {
+            setState("loading");
+          }
+        } else if (isManualRefresh) {
+          setIsRefreshing(true);
+        }
       }
 
       try {
-        const syncResult = await syncDashboardFromPlaid();
+        const syncResult = await syncDashboardFromPlaid({
+          mode: isManualRefresh ? "manual" : "auto",
+        });
+
+        if (syncResult.skipped) {
+          if (isManualRefresh) {
+            setRefreshNotice(
+              formatManualRefreshThrottleMessage(syncResult.nextAllowedAt),
+            );
+          }
+
+          if (!hasLoadedOnce.current) {
+            await loadLocalDashboardData();
+            hasLoadedOnce.current = true;
+            setState("ready");
+          }
+
+          return;
+        }
+
         await loadLocalDashboardData();
         setLastSyncedAt(syncResult.lastSyncedAt);
         hasLoadedOnce.current = true;
@@ -145,8 +182,12 @@ export function Dashboard() {
           setState("error");
         }
       } finally {
-        refreshInFlight.current = false;
-        setIsRefreshing(false);
+        syncCallCount.current -= 1;
+        if (syncCallCount.current <= 0) {
+          syncCallCount.current = 0;
+          refreshInFlight.current = false;
+          setIsRefreshing(false);
+        }
       }
     },
     [loadLocalDashboardData],
@@ -154,10 +195,6 @@ export function Dashboard() {
 
   const handleRefreshDashboard = useCallback(
     (scrollToTop: boolean) => {
-      if (refreshInFlight.current) {
-        return;
-      }
-
       if (scrollToTop) {
         scrollRef.current?.scrollTo({ y: 0, animated: true });
       }
@@ -287,6 +324,12 @@ export function Dashboard() {
               Syncing balances, transactions, and subscriptions
             </Text>
           </View>
+        </Card>
+      ) : null}
+
+      {refreshNotice ? (
+        <Card variant="muted" className="mb-5 border border-slate-200/80 bg-slate-50/80">
+          <Text className="text-sm leading-5 text-slate-600">{refreshNotice}</Text>
         </Card>
       ) : null}
 

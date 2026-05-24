@@ -14,6 +14,12 @@ export const SETTING_KEYS = {
   CURRENCY_CODE: "currency_code",
   PLAID_ITEM_ID: "plaid_item_id",
   LAST_SYNC_AT: "last_sync_at",
+  /** Last full Plaid dashboard sync (accounts + transactions). */
+  LAST_PLAID_SYNC_AT: "last_plaid_sync_at",
+  /** Last user-initiated pull-to-refresh / manual dashboard refresh. */
+  LAST_PLAID_MANUAL_REFRESH_AT: "last_plaid_manual_refresh_at",
+  /** Last Plaid accounts/balances API sync. */
+  LAST_PLAID_BALANCE_SYNC_AT: "last_plaid_balance_sync_at",
   /** Non-secret Plaid proxy base URL (e.g. http://127.0.0.1:3001). */
   API_BASE_URL: "api_base_url",
   /** @deprecated Use API_BASE_URL */
