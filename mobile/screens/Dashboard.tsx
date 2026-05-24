@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
 import { DashboardEmptyState } from "../components/dashboard/DashboardEmptyState";
 import { DashboardSection } from "../components/dashboard/DashboardSection";
 import { SubscriptionDetailModal } from "../components/subscriptions/SubscriptionDetailModal";
@@ -79,6 +85,7 @@ export function Dashboard() {
   const [transactionSearchQuery, setTransactionSearchQuery] = useState("");
   const hasLoadedOnce = useRef(false);
   const refreshInFlight = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
 
   const loadLocalDashboardData = useCallback(async () => {
     const [accountRows, allTransactionRows, subscriptionRows, syncSetting] =
@@ -143,6 +150,21 @@ export function Dashboard() {
       }
     },
     [loadLocalDashboardData],
+  );
+
+  const handleRefreshDashboard = useCallback(
+    (scrollToTop: boolean) => {
+      if (refreshInFlight.current) {
+        return;
+      }
+
+      if (scrollToTop) {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }
+
+      void loadDashboard("refresh");
+    },
+    [loadDashboard],
   );
 
   useEffect(() => {
@@ -222,9 +244,23 @@ export function Dashboard() {
   const lastSyncedLabel = formatLastSyncedAt(lastSyncedAt);
   const showInitialLoading = state === "loading" && !hasLoadedOnce.current;
   const showFatalError = state === "error" && !hasLoadedOnce.current;
+  const showRefreshBanner = isRefreshing && state === "ready";
 
   return (
-    <ScreenContainer contentClassName="pb-16">
+    <ScreenContainer
+      ref={scrollRef}
+      contentClassName="pb-16"
+      refreshControl={
+        state === "ready" ? (
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => handleRefreshDashboard(false)}
+            tintColor="#0284c7"
+            colors={["#0284c7"]}
+          />
+        ) : undefined
+      }
+    >
       <View className="mb-7">
         <Text className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
           {institutionName}
@@ -239,12 +275,18 @@ export function Dashboard() {
         ) : null}
       </View>
 
-      {isRefreshing ? (
-        <Card variant="muted" className="mb-5 flex-row items-center border border-brand-100/80">
+      {showRefreshBanner ? (
+        <Card
+          variant="elevated"
+          className="mb-5 flex-row items-center border-2 border-brand-200 bg-brand-50 py-4"
+        >
           <ActivityIndicator size="small" color="#0284c7" />
-          <Text className="ml-3 text-sm font-medium text-brand-700">
-            Refreshing your finances…
-          </Text>
+          <View className="ml-3 flex-1">
+            <Text className="text-sm font-bold text-brand-800">Refreshing dashboard…</Text>
+            <Text className="mt-0.5 text-xs text-brand-600">
+              Syncing balances, transactions, and subscriptions
+            </Text>
+          </View>
         </Card>
       ) : null}
 
@@ -466,7 +508,7 @@ export function Dashboard() {
 
           <SecondaryButton
             title={isRefreshing ? "Refreshing…" : "Refresh dashboard"}
-            onPress={() => void loadDashboard("refresh")}
+            onPress={() => handleRefreshDashboard(true)}
             loading={isRefreshing}
             disabled={isRefreshing}
           />
