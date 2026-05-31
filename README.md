@@ -1,23 +1,81 @@
-# RMoney
+## Features
 
-Local-only personal finance dashboard (Rocket Money–style) for private use.
+### Dashboard
 
-## Architecture
+* Consolidated account balances across linked financial institutions
+* Monthly spending summary and category breakdowns
+* Recent transaction feed with search functionality
+* Local-first data storage
 
-- **`mobile/`** — Expo React Native app. Financial data in SQLite; Plaid token in Secure Store.
-- **`server/`** — Minimal private Plaid proxy. **No database, no persistence.**
-- **`SECURITY.md`** — Threat model, data flows, and encryption notes.
+### Accounts
 
-## Quick start (after credentials)
+* Account grouping by type
+* Detailed account views
+* Balance tracking and institution organization
 
-Install dependencies **only** inside `mobile/` and `server/` (not the repo root).
+### Transactions
 
-```bash
-# Terminal 1 — Plaid proxy (copy server/.env.example → server/.env first)
-cd server && npm install && npm run dev
+* Search and filter transactions
+* Category drill-down views
+* Manual category overrides
+* Merchant-based categorization rules
 
-# Terminal 2 — Mobile app
-cd mobile && npm install && npx expo start
-```
+### Subscription Detection
 
-No Supabase, Firebase, cloud database, or analytics/crash SDKs.
+* Automatic recurring payment detection
+* Subscription review workflow
+* Predicted billing dates and amounts
+* Confirm subscriptions or hide false positives
+
+### Privacy-Focused Design
+
+* Financial data stored locally in SQLite
+* Plaid access tokens stored in Secure Store
+* No analytics
+* No cloud database
+* No user tracking
+* Minimal private Plaid proxy server
+
+## Screenshots
+
+### Dashboard Overview
+
+![Dashboard](./screenshots/dashboard.png)
+
+### Monthly Spending Analysis
+
+![Monthly Spending](./screenshots/monthly-spending.png)
+
+### Subscription Detection
+
+![Subscriptions](./screenshots/subscriptions.png)
+
+### Subscription Review
+
+![Subscription Review](./screenshots/subscription-review.png)
+
+### Category Drill Down
+
+![Category Details](./screenshots/category-details.png)
+
+## Tech Stack
+
+### Mobile
+
+* React Native
+* Expo
+* TypeScript
+* SQLite
+* Expo Secure Store
+
+### Backend
+
+* Node.js
+* Express
+* Plaid API
+
+## Portfolio Notes
+
+This project was built to explore mobile application development, financial data aggregation, local-first architecture, transaction categorization, and recurring payment detection.
+
+All financial account data shown in screenshots uses Plaid Sandbox test data.
