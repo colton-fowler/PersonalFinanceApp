@@ -2,6 +2,7 @@
   "expo": {
     "name": "RMoney",
     "slug": "RMoney",
+    "scheme": "rmoney",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

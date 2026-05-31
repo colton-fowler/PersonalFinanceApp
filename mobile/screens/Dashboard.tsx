@@ -1,17 +1,21 @@
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   Text,
   View,
 } from "react-native";
+import { AccountListRow } from "../components/dashboard/AccountListRow";
 import { DashboardEmptyState } from "../components/dashboard/DashboardEmptyState";
 import { DashboardSection } from "../components/dashboard/DashboardSection";
 import { SubscriptionDetailModal } from "../components/subscriptions/SubscriptionDetailModal";
 import { CategorySpendingModal } from "../components/transactions/CategorySpendingModal";
-import { TransactionCategoryChip } from "../components/transactions/TransactionCategoryChip";
 import { TransactionDetailModal } from "../components/transactions/TransactionDetailModal";
+import { TransactionListRow } from "../components/transactions/TransactionListRow";
 import { TransactionSearchInput } from "../components/transactions/TransactionSearchInput";
 import { Card } from "../components/ui/Card";
 import { ListRow } from "../components/ui/ListRow";
@@ -27,6 +31,7 @@ import { listAccounts } from "../db/repositories/accountsRepository";
 import { getSetting } from "../db/repositories/settingsRepository";
 import { listVisibleSubscriptions } from "../db/repositories/subscriptionsRepository";
 import { listAllTransactions } from "../db/repositories/transactionsRepository";
+import type { RootStackParamList } from "../navigation/types";
 import { syncDashboardFromPlaid } from "../services/dashboardSyncService";
 import {
   listMonthlySpendingTransactionsForCategory,
@@ -42,10 +47,7 @@ import { formatCadenceLabel } from "../utils/formatCadence";
 import { formatCurrency } from "../utils/formatCurrency";
 import { formatLastSyncedAt } from "../utils/formatLastSync";
 import { formatManualRefreshThrottleMessage } from "../utils/formatPlaidSyncWait";
-import {
-  formatTransactionAmount,
-  formatTransactionDate,
-} from "../utils/formatTransactionAmount";
+import { formatTransactionDate } from "../utils/formatTransactionAmount";
 import {
   filterTransactionRows,
   normalizeTransactionSearchQuery,
@@ -62,7 +64,13 @@ const GENERIC_ERROR =
   "Sync failed. Check your connection and proxy server, then try again.";
 const RECENT_TRANSACTION_LIMIT = 25;
 
+type DashboardNavigation = NativeStackNavigationProp<
+  RootStackParamList,
+  "Dashboard"
+>;
+
 export function Dashboard() {
+  const navigation = useNavigation<DashboardNavigation>();
   const [state, setState] = useState<DashboardState>("loading");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -298,18 +306,28 @@ export function Dashboard() {
         ) : undefined
       }
     >
-      <View className="mb-7">
-        <Text className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-          {institutionName}
-        </Text>
-        <Text className="mt-1.5 text-[32px] font-bold tracking-tight text-slate-900">
-          Dashboard
-        </Text>
-        {lastSyncedLabel ? (
-          <Text className="mt-2 text-sm text-slate-500">
-            Updated {lastSyncedLabel}
+      <View className="mb-7 flex-row items-start justify-between gap-3">
+        <View className="min-w-0 flex-1">
+          <Text className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+            {institutionName}
           </Text>
-        ) : null}
+          <Text className="mt-1.5 text-[32px] font-bold tracking-tight text-slate-900">
+            Dashboard
+          </Text>
+          {lastSyncedLabel ? (
+            <Text className="mt-2 text-sm text-slate-500">
+              Updated {lastSyncedLabel}
+            </Text>
+          ) : null}
+        </View>
+        <Pressable
+          onPress={() => navigation.navigate("Settings")}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 active:bg-slate-50"
+          accessibilityRole="button"
+          accessibilityLabel="Open settings"
+        >
+          <Text className="text-sm font-semibold text-slate-700">Settings</Text>
+        </Pressable>
       </View>
 
       {showRefreshBanner ? (
@@ -384,7 +402,7 @@ export function Dashboard() {
             </Text>
           </Card>
 
-          <DashboardSection title="Accounts" subtitle="By account type">
+          <DashboardSection title="Accounts" subtitle="Tap an account for details">
             {groups.length === 0 ? (
               <DashboardEmptyState
                 title="No accounts yet"
@@ -392,18 +410,34 @@ export function Dashboard() {
               />
             ) : (
               <View>
-                {groups.map((group, index) => (
-                  <ListRow
+                {groups.map((group, groupIndex) => (
+                  <View
                     key={group.key}
-                    isFirst={index === 0}
-                    title={group.label}
-                    subtitle={`${group.accounts.length} account${group.accounts.length === 1 ? "" : "s"}`}
-                    trailing={
-                      <Text className="text-lg font-bold tabular-nums text-slate-900">
+                    className={groupIndex === 0 ? "" : "mt-5 border-t border-slate-100/90 pt-4"}
+                  >
+                    <View className="mb-2 flex-row items-baseline justify-between px-0.5">
+                      <Text className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                        {group.label}
+                      </Text>
+                      <Text className="text-xs font-medium tabular-nums text-slate-400">
                         {formatCurrency(group.total)}
                       </Text>
-                    }
-                  />
+                    </View>
+                    <View>
+                      {group.accounts.map((account, index) => (
+                        <AccountListRow
+                          key={account.id}
+                          account={account}
+                          isFirst={index === 0}
+                          onPress={() =>
+                            navigation.navigate("AccountDetail", {
+                              accountId: account.id,
+                            })
+                          }
+                        />
+                      ))}
+                    </View>
+                  </View>
                 ))}
               </View>
             )}
@@ -506,44 +540,15 @@ export function Dashboard() {
                 {filteredTransactionRows.length === 0 ? (
                   <DashboardEmptyState message="No matching transactions." />
                 ) : (
-                  filteredTransactionRows.map((transaction, index) => {
-                    const displayName =
-                      transaction.merchant_name ?? transaction.name;
-                    const amountDisplay = formatTransactionAmount(transaction.amount);
-
-                    return (
-                      <ListRow
-                        key={transaction.id}
-                        isFirst={index === 0}
-                        onPress={() => setSelectedTransactionId(transaction.id)}
-                        leading={<MerchantAvatar label={displayName} size="sm" />}
-                        title={displayName}
-                        subtitle={`${formatTransactionDate(transaction.date)} · ${transaction.accountLabel}`}
-                        trailing={
-                          <Text
-                            className={`text-base font-bold tabular-nums ${
-                              amountDisplay.isOutflow
-                                ? "text-rose-600"
-                                : "text-emerald-700"
-                            }`}
-                          >
-                            {amountDisplay.text}
-                          </Text>
-                        }
-                      >
-                        <View className="mt-1.5 flex-row flex-wrap items-center gap-1.5">
-                          <TransactionCategoryChip
-                            category={transaction.category}
-                            categorySource={transaction.category_source}
-                            className="mt-0"
-                          />
-                          {transaction.pending ? (
-                            <Pill label="Pending" tone="warning" />
-                          ) : null}
-                        </View>
-                      </ListRow>
-                    );
-                  })
+                  filteredTransactionRows.map((transaction, index) => (
+                    <TransactionListRow
+                      key={transaction.id}
+                      transaction={transaction}
+                      accountLabel={transaction.accountLabel}
+                      isFirst={index === 0}
+                      onPress={() => setSelectedTransactionId(transaction.id)}
+                    />
+                  ))
                 )}
               </View>
             )}

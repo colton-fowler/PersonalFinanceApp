@@ -2,9 +2,10 @@ import "./global.css";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ConnectBank } from "./components/ConnectBank";
 import { initializeDatabase } from "./db";
-import { Dashboard } from "./screens/Dashboard";
+import { RootNavigator } from "./navigation/RootNavigator";
 import { hasSecret, SECRET_KEYS } from "./security/secureStore";
 import { safeLogger } from "./security/safeLogger";
 
@@ -16,12 +17,14 @@ const GENERIC_INIT_ERROR =
 function MainShell({
   linked,
   onLinked,
+  onUnlinked,
 }: {
   linked: boolean;
   onLinked: () => void;
+  onUnlinked: () => void;
 }) {
   if (linked) {
-    return <Dashboard />;
+    return <RootNavigator onUnlinked={onUnlinked} />;
   }
 
   return (
@@ -101,9 +104,15 @@ export default function App() {
   }
 
   return (
-    <View className="flex-1 bg-slate-50">
-      <MainShell linked={linked === true} onLinked={() => setLinked(true)} />
-      <StatusBar style="auto" />
-    </View>
+    <SafeAreaProvider>
+      <View className="flex-1 bg-slate-50">
+        <MainShell
+          linked={linked === true}
+          onLinked={() => setLinked(true)}
+          onUnlinked={() => setLinked(false)}
+        />
+        <StatusBar style="auto" />
+      </View>
+    </SafeAreaProvider>
   );
 }
