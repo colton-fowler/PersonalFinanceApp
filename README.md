@@ -38,25 +38,16 @@
 
 ## Screenshots
 
-### Dashboard Overview
+<p align="center">
+  <img src="./screenshots/dashboard.png" width="220">
+  <img src="./screenshots/monthly-spending.png" width="220">
+  <img src="./screenshots/subscriptions.png" width="220">
+</p>
 
-![Dashboard](./screenshots/dashboard.png)
-
-### Monthly Spending Analysis
-
-![Monthly Spending](./screenshots/monthly-spending.png)
-
-### Subscription Detection
-
-![Subscriptions](./screenshots/subscriptions.png)
-
-### Subscription Review
-
-![Subscription Review](./screenshots/subscription-review.png)
-
-### Category Drill Down
-
-![Category Details](./screenshots/category-details.png)
+<p align="center">
+  <img src="./screenshots/subscription-review.png" width="220">
+  <img src="./screenshots/category-details.png" width="220">
+</p>
 
 ## Tech Stack
 
